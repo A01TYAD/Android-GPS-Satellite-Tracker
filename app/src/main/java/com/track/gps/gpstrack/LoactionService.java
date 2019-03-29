@@ -19,6 +19,7 @@ import android.provider.Settings;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.Toast;
 
 /**
@@ -32,6 +33,7 @@ public class LoactionService extends Service {
     private LocationListener locationListener;
     MyServiceReceiver myServiceReceiver;
     static String state = "STOPPED";
+
     //from MainActivity to LocationService
     final static String ACTION_START_TRACKING = "ACTION_START_TRACKING";
     final static String ACTION_STOP_TRACKING = "ACTION_STOP_TRACKING";
@@ -55,10 +57,11 @@ public class LoactionService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i("Status:", "Service Started!");
         startReciever();
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         getCurrentPosition();
+
+        //Starting Location Listener to get current position.
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(final Location location) {
@@ -72,7 +75,6 @@ public class LoactionService extends Service {
                     @Override
                     public void run() {
                         // Send broadcast after every 2s = 2000ms
-                        Log.i("status:", "Locating Updating!");
                         Intent intent = new Intent();
                         intent.setAction(ACTION_UPDATE_POSITION);
                         intent.putExtra(KEY_LATITUDE_FROM_SERVICE, lat);
@@ -97,6 +99,7 @@ public class LoactionService extends Service {
 
             @Override
             public void onProviderDisabled(String s) {
+                //opening settings if gps is disabled.
                 Intent i = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
                 startActivity(i);
             }
@@ -106,25 +109,25 @@ public class LoactionService extends Service {
     }
 
     private void getCurrentPosition() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        //getting last known position and broadcasting it for MainActivity
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            if (locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)!= null) {
+                double latitude = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).getLatitude();
+                double longitude = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).getLongitude();
+                double altitude = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).getAltitude();
+                Intent intent = new Intent();
+                intent.setAction(ACTION_UPDATE_POSITION);
+                intent.putExtra(KEY_LATITUDE_FROM_SERVICE, String.valueOf(latitude));
+                intent.putExtra(KEY_LONGITUDE_FROM_SERVICE, String.valueOf(longitude));
+                intent.putExtra(KEY_ALTITUDE_FROM_SERVICE, String.valueOf(altitude));
+                sendBroadcast(intent);
             }
-            return;
         }
-        double latitude =locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).getLatitude();
-        double longitude=locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).getLongitude();
-        double altitude=locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).getAltitude();
-        Intent intent = new Intent();
-        intent.setAction(ACTION_UPDATE_POSITION);
-        intent.putExtra(KEY_LATITUDE_FROM_SERVICE, String.valueOf(latitude));
-        intent.putExtra(KEY_LONGITUDE_FROM_SERVICE, String.valueOf(longitude));
-        intent.putExtra(KEY_ALTITUDE_FROM_SERVICE, String.valueOf(altitude));
-        Log.i("status:",latitude+" "+longitude);
-        sendBroadcast(intent);
     }
 
 
     private void startReciever() {
+        //Starting Reciever for this service.
         myServiceReceiver = new MyServiceReceiver();
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ACTION_STOP_TRACKING);
@@ -135,10 +138,8 @@ public class LoactionService extends Service {
 
 
     private void startGpsTracking(){
-        Log.i("status:","Started tracking");
+        //starting gps tracking
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            }
             return;
         }
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,50,0,locationListener);
@@ -146,13 +147,13 @@ public class LoactionService extends Service {
     }
 
     private void stopGpsTracking() {
+        //stopping gps tracking
         locationManager.removeUpdates(locationListener);
         state="STOPPED";
-        Log.i("status:", "Tracking Stopped!");
 
     }
     private void getNmea() {
-        Log.i("status:","Started tracking");
+        //scanning through available NMEA sentences and getting required sentences.
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             }
@@ -178,7 +179,6 @@ public class LoactionService extends Service {
                             }
                         }, 2000);
 
-                        Log.i("Statusis nmea",message+"--"+timeStamp);
                     }
                 }
             });
@@ -186,18 +186,16 @@ public class LoactionService extends Service {
     }
 
     public class MyServiceReceiver extends BroadcastReceiver {
+        //Reciever Class
         @Override
         public void onReceive(Context context, Intent intent) {
 
             String action = intent.getAction();
             if(action.equals(ACTION_START_TRACKING)){
-                Log.i("Status:","START_TRACKING brodcast recieved");
                 startGpsTracking();
             }else if(action.equals(ACTION_STOP_TRACKING)){
-                Log.i("Status:","STOP_TRACKING brodcast recieved");
                 stopGpsTracking();
             }else if(action.equals(ACTION_STOP_SERVICE)){
-                Log.i("Status:","STOP_SERVICE brodcast recieved");
                 stopSelf();
             }
 

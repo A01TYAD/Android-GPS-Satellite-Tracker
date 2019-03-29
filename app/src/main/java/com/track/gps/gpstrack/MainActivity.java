@@ -12,6 +12,7 @@ import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -32,8 +33,7 @@ public class MainActivity extends AppCompatActivity {
     Button btnStart;
     ImageButton btnCollapsSat;
     boolean isTracking = false;
-    boolean isHidden = false;
-    LoactionService locationService;
+    LoactionService locationService = new LoactionService();
     MyServiceReceiver myServiceReceiver;
 
     @Override
@@ -46,12 +46,10 @@ public class MainActivity extends AppCompatActivity {
 
         //Checking if location service is already running or not.
         if(locationService.state.equals("STARTED")){
-            isTracking = true;
             btnStart.setText("Stop Gps Tracking");
         }else{
             //Start location service if it is not already running.
             btnStart.setText("Start Gps Tracking");
-            isTracking= false;
             Intent intent = new Intent(MainActivity.this, LoactionService.class);
             startService(intent);
         }
@@ -90,19 +88,11 @@ public class MainActivity extends AppCompatActivity {
         btnStart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(isTracking == false){
+                if(locationService.state.equals("STOPPED")){
                     //Starting location service.
-                    startGpsTracking();
-                    final LocationManager manager = (LocationManager) getSystemService( Context.LOCATION_SERVICE );
-
-                    if ( manager.isProviderEnabled( LocationManager.GPS_PROVIDER ) ) {
-                        // Call your Alert message
-                        btnStart.setText("Stop Gps Tracking");
+                        startGpsTracking();
                         isTracking = true;
-                    }else{
-                        Toast.makeText(MainActivity.this,"Please turn on  Location Service",Toast.LENGTH_SHORT).show();
-                    }
-                }else{
+                }else if(locationService.state.equals("STARTED")){
                     //Stoping location Service.
                     stopGpsTracking();
                     btnStart.setText("Start Gps Tracking");
@@ -157,14 +147,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void startGpsTracking() {
         // first check for permissions
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.INTERNET}
-                        ,10);
-            }
-            return;
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                        PackageManager.PERMISSION_GRANTED) {
+            // Permission already Granted
+            startLocationServiceUpdates();
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
         }
-        startLocationServiceUpdates();
+
     }
 
     private void startReciever(){
@@ -177,15 +169,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startLocationServiceUpdates() {
-        // Method for starting location service.
+        // Method for sending bordcast to start tracking location.
         Intent intent = new Intent();
         intent.setAction(locationService.ACTION_START_TRACKING);
         sendBroadcast(intent);
+        if(locationService.state.equals("STOPPED")){
+            btnStart.setText("Stop Gps Tracking");
+        }
 
     }
 
 
     private void terminateLocationService(){
+        //Method for sending broadcast to terminate location service.
         Intent intent = new Intent();
         intent.setAction(locationService.ACTION_STOP_SERVICE);
         sendBroadcast(intent);
@@ -193,7 +189,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void stopLocationServiceUpdates() {
-        // Method for stoping location service.
+        // Method for sending broadcast to stop tracking location.
         Intent intent = new Intent();
         intent.setAction(locationService.ACTION_STOP_TRACKING);
         sendBroadcast(intent);
@@ -202,23 +198,20 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        //Checking for permission
-        switch (requestCode){
-            case 10:
-                startGpsTracking();
-                break;
-            default:
-                break;
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                //Permission Granted
+                //Do your work here
+            }else{
+                Toast.makeText(this, "Please grant permission to proceed!",Toast.LENGTH_SHORT).show();
+            }
         }
     }
     public class MyServiceReceiver extends BroadcastReceiver {
-
         @Override
         public void onReceive(Context context, Intent intent) {
-
             String action = intent.getAction();
             if(action.equals(locationService.ACTION_UPDATE_POSITION)){
-                Log.i("nmea sentences:  ",intent.getStringExtra(locationService.KEY_LATITUDE_FROM_SERVICE)+" "+intent.getStringExtra(locationService.KEY_LONGITUDE_FROM_SERVICE));
                 tvLatitude.setText(intent.getStringExtra(locationService.KEY_LATITUDE_FROM_SERVICE));
                 tvLongitude.setText(intent.getStringExtra(locationService.KEY_LONGITUDE_FROM_SERVICE));
                 String altitude = intent.getStringExtra(locationService.KEY_ALTITUDE_FROM_SERVICE);
@@ -263,23 +256,23 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    // Method for checking if a service is running or not.
-    private boolean isMyServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     @Override
     protected void onPause() {
         super.onPause();
+        // Terminating Location Service if not currently tracking location.
         if(locationService.state.equals("STOPPED")){
             terminateLocationService();
             isTracking=false;
         }
+    }
+
+    @Override
+    protected void onResume() {
+        //Restarting Location Service if previously terminated during onPause().
+        if(locationService.state.equals("STOPPED")){
+            Intent intent = new Intent(MainActivity.this, LoactionService.class);
+            startService(intent);
+        }
+        super.onResume();
     }
 }
