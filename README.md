@@ -1,4 +1,5 @@
-# Android-GPS-Satellite-Tracker
+# Android-GPS-Satellite-Tracker  
+----------------------------------
 
 GPS Satellite Tracker is and android app that tracks the of GPS Satellites(PRN, SNR, Elevation and Azimuth) around you 
 that are used to get your current location. It uses the gps $GPGSV NMEA data to determine the position of GPS satellites.
@@ -7,9 +8,8 @@ The NMEA 0183 standard uses a simple ASCII, serial communications protocol that 
   
   
 Example of $GPGSC sentence from https://www.gpsinformation.org/dale/nmea.htm:  
-  
-```$GPGSV,2,1,04,01,40,083,46,02,17,308,41,12,07,344,39,14,22,228,45*75
-
+ ``` 
+$GPGSV,2,1,04,01,40,083,46,02,17,308,41,12,07,344,39,14,22,228,45*75
 Where:   
       GSV          Satellites in view 
       2            Number of sentences for full data
@@ -21,5 +21,6 @@ Where:
       46           SNR - higher is better
       *75          the checksum data, always begins with *
   ```
-  
+Screenshot  
+------------------------------------
 ![](http://adhungana.com.np/img/GPSTrack.png)
