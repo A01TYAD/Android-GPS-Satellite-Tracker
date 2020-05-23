@@ -1,7 +1,7 @@
 # Android-GPS-Satellite-Tracker  
 ----------------------------------
 
-GPS Satellite Tracker is and android app that tracks the position of GPS Satellites(PRN, SNR, Elevation and Azimuth) around you 
+GPS Satellite Tracker is an android app that tracks the position of GPS Satellites(PRN, SNR, Elevation and Azimuth) around you 
 that are used to get your current location. It uses the gps $GPGSV NMEA data to determine the position of GPS satellites.
   
 The NMEA 0183 standard uses a simple ASCII, serial communications protocol that defines how data are transmitted in a "sentence" from one "talker" to multiple "listeners" at a time. 
